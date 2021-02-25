@@ -1,4 +1,10 @@
+--find-links https://download.pytorch.org/whl/nightly/cu110/torch_nightly.html
 numpy>=1.14.0
-torch>=0.4.0
+torch==1.8.0.dev20210208
+lockfile
 gym[mujoco]==0.10.5
 tensorboardX>=1.2
+matplotlib
+scipy
+pyyaml==3.12
+gitpython==3.0.8

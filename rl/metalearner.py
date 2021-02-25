@@ -10,40 +10,37 @@ from rl_utils.torch_utils import (weighted_mean, detach_distribution, weighted_n
 class MetaLearner(object):
     """Meta-learner
 
-    The meta-learner is responsible for sampling the trajectories/episodes 
-    (before and after the one-step adaptation), compute the inner loss, compute 
+    The meta-learner is responsible for sampling the trajectories/episodes
+    (before and after the one-step adaptation), compute the inner loss, compute
     the updated parameters based on the inner-loss, and perform the meta-update.
 
-    [1] Chelsea Finn, Pieter Abbeel, Sergey Levine, "Model-Agnostic 
-        Meta-Learning for Fast Adaptation of Deep Networks", 2017 
+    [1] Chelsea Finn, Pieter Abbeel, Sergey Levine, "Model-Agnostic
+        Meta-Learning for Fast Adaptation of Deep Networks", 2017
         (https://arxiv.org/abs/1703.03400)
     [2] Richard Sutton, Andrew Barto, "Reinforcement learning: An introduction",
         2018 (http://incompleteideas.net/book/the-book-2nd.html)
-    [3] John Schulman, Philipp Moritz, Sergey Levine, Michael Jordan, 
-        Pieter Abbeel, "High-Dimensional Continuous Control Using Generalized 
+    [3] John Schulman, Philipp Moritz, Sergey Levine, Michael Jordan,
+        Pieter Abbeel, "High-Dimensional Continuous Control Using Generalized
         Advantage Estimation", 2016 (https://arxiv.org/abs/1506.02438)
-    [4] John Schulman, Sergey Levine, Philipp Moritz, Michael I. Jordan, 
+    [4] John Schulman, Sergey Levine, Philipp Moritz, Michael I. Jordan,
         Pieter Abbeel, "Trust Region Policy Optimization", 2015
         (https://arxiv.org/abs/1502.05477)
     """
 
-    def __init__(self, sampler, policy, baseline, gamma=0.95,
-                 fast_lr=0.5, tau=1.0, device='cpu'):
+    def __init__(self, sampler, policy, baseline, args):
         self.sampler = sampler
         self.policy = policy
         self.baseline = baseline
-        self.gamma = gamma
-        self.fast_lr = fast_lr
-        self.tau = tau
-        self.to(device)
+        self.args = args
+        self.to(args.device)
 
     def inner_loss(self, episodes, params=None):
-        """Compute the inner loss for the one-step gradient update. The inner 
-        loss is REINFORCE with baseline [2], computed on advantages estimated 
+        """Compute the inner loss for the one-step gradient update. The inner
+        loss is REINFORCE with baseline [2], computed on advantages estimated
         with Generalized Advantage Estimation (GAE, [3]).
         """
         values = self.baseline(episodes)
-        advantages = episodes.gae(values, tau=self.tau)
+        advantages = episodes.gae(values, tau=self.args.tau)
         advantages = weighted_normalize(advantages, weights=episodes.mask)
 
         pi = self.policy(episodes.observations, params=params)
@@ -56,12 +53,11 @@ class MetaLearner(object):
         return loss
 
     def adapt(self, episodes, first_order=False, params=None, lr=None):
-        """Adapt the parameters of the policy network to a new task, from 
+        """Adapt the parameters of the policy network to a new task, from
         sampled trajectories `episodes`, with a one-step gradient update [1].
         """
-
         if lr is None:
-            lr = self.fast_lr
+            lr = self.args.fast_lr
 
         # Fit the baseline to the training episodes
         self.baseline.fit(episodes)
@@ -75,7 +71,7 @@ class MetaLearner(object):
         return params, loss
 
     def sample(self, tasks, first_order=False):
-        """Sample trajectories (before and after the update of the parameters) 
+        """Sample trajectories (before and after the update of the parameters)
         for all the tasks `tasks`.
         """
         episodes = []
@@ -83,11 +79,13 @@ class MetaLearner(object):
         for task in tasks:
             self.sampler.reset_task(task)
             self.policy.reset_context()
-            train_episodes = self.sampler.sample(self.policy, gamma=self.gamma)
+            train_episodes = self.sampler.sample(self.policy, gamma=self.args.gamma)
+
             # inner loop (for CAVIA, this only updates the context parameters)
             params, loss = self.adapt(train_episodes, first_order=first_order)
+
             # rollouts after inner loop update
-            valid_episodes = self.sampler.sample(self.policy, params=params, gamma=self.gamma)
+            valid_episodes = self.sampler.sample(self.policy, params=params, gamma=self.args.gamma)
             episodes.append((train_episodes, valid_episodes))
             losses.append(loss.item())
 
@@ -99,7 +97,6 @@ class MetaLearner(object):
         """
         episodes_per_task = []
         for task in tasks:
-
             # reset context params (for cavia) and task
             self.policy.reset_context()
             self.sampler.reset_task(task)
@@ -108,7 +105,8 @@ class MetaLearner(object):
             params = None
 
             # gather some initial experience and log performance
-            test_episodes = self.sampler.sample(self.policy, gamma=self.gamma, params=params, batch_size=batch_size)
+            test_episodes = self.sampler.sample(
+                self.policy, gamma=self.args.gamma, params=params, batch_size=batch_size)
 
             # initialise list which will log all rollouts for the current task
             curr_episodes = [test_episodes]
@@ -117,15 +115,16 @@ class MetaLearner(object):
 
                 # lower learning rate after first update (for MAML, as described in their paper)
                 if i == 1 and halve_lr:
-                    lr = self.fast_lr / 2
+                    lr = self.args.fast_lr / 2.
                 else:
-                    lr = self.fast_lr
+                    lr = self.args.fast_lr
 
                 # inner-loop update
                 params, loss = self.adapt(test_episodes, first_order=True, params=params, lr=lr)
 
                 # get new rollouts
-                test_episodes = self.sampler.sample(self.policy, gamma=self.gamma, params=params, batch_size=batch_size)
+                test_episodes = self.sampler.sample(
+                    self.policy, gamma=self.args.gamma, params=params, batch_size=batch_size)
                 curr_episodes.append(test_episodes)
 
             episodes_per_task.append(curr_episodes)
@@ -193,11 +192,10 @@ class MetaLearner(object):
                     old_pi = detach_distribution(pi)
 
                 values = self.baseline(valid_episodes)
-                advantages = valid_episodes.gae(values, tau=self.tau)
+                advantages = valid_episodes.gae(values, tau=self.args.tau)
                 advantages = weighted_normalize(advantages, weights=valid_episodes.mask)
 
-                log_ratio = (pi.log_prob(valid_episodes.actions)
-                             - old_pi.log_prob(valid_episodes.actions))
+                log_ratio = (pi.log_prob(valid_episodes.actions) - old_pi.log_prob(valid_episodes.actions))
                 if log_ratio.dim() > 2:
                     log_ratio = torch.sum(log_ratio, dim=2)
                 ratio = torch.exp(log_ratio)
@@ -215,7 +213,7 @@ class MetaLearner(object):
 
     def step(self, episodes, max_kl=1e-3, cg_iters=10, cg_damping=1e-2,
              ls_max_steps=10, ls_backtrack_ratio=0.5):
-        """Meta-optimization step (ie. update of the initial parameters), based 
+        """Meta-optimization step (ie. update of the initial parameters), based
         on Trust Region Policy Optimization (TRPO, [4]).
         """
         old_loss, _, old_pis = self.surrogate_loss(episodes)
@@ -246,7 +244,6 @@ class MetaLearner(object):
                 break
             step_size *= ls_backtrack_ratio
         else:
-            print('no update?')
             vector_to_parameters(old_params, self.policy.parameters())
 
         return loss
