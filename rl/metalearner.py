@@ -1,10 +1,8 @@
 import torch
 from torch.distributions.kl import kl_divergence
-from torch.nn.utils.convert_parameters import (vector_to_parameters,
-                                               parameters_to_vector)
-
-from rl_utils.optimization import conjugate_gradient
-from rl_utils.torch_utils import (weighted_mean, detach_distribution, weighted_normalize)
+from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
+from misc.optimization import conjugate_gradient
+from misc.torch_utils import weighted_mean, detach_distribution, weighted_normalize
 
 
 class MetaLearner(object):
@@ -26,7 +24,6 @@ class MetaLearner(object):
         Pieter Abbeel, "Trust Region Policy Optimization", 2015
         (https://arxiv.org/abs/1502.05477)
     """
-
     def __init__(self, sampler, policy, baseline, args):
         self.sampler = sampler
         self.policy = policy
