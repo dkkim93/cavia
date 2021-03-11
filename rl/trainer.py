@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-import scipy.stats as st
 
 
 def get_returns(episodes_per_task):
@@ -23,16 +22,16 @@ def get_returns(episodes_per_task):
     return returns
 
 
-def total_rewards(episodes_per_task, interval=False):
+def total_rewards(episodes_per_task, args, interval=False):
     returns = get_returns(episodes_per_task).cpu().numpy()
+    returns = np.split(returns, len(args.env_name), axis=0)
 
-    mean = np.mean(returns, axis=0)
-    conf_int = st.t.interval(0.95, len(mean) - 1, loc=mean, scale=st.sem(returns, axis=0))
-    conf_int = mean - conf_int
-    if interval:
-        return mean, conf_int[0]
-    else:
-        return mean
+    before_rewards, after_rewards = [], []
+    for return_ in returns:
+        mean = np.mean(return_, axis=0)
+        before_rewards.append(mean[0])
+        after_rewards.append(mean[1])
+    return before_rewards, after_rewards
 
 
 def train(sampler, metalearner, args, log, tb_writer):
@@ -51,30 +50,16 @@ def train(sampler, metalearner, args, log, tb_writer):
             ls_backtrack_ratio=args.ls_backtrack_ratio)
 
         # For logging
-        curr_returns = total_rewards(episodes, interval=True)
-        log[args.log_name].info("Return after update: {}".format(curr_returns[0][1]))
+        before_rewards, after_rewards = total_rewards(episodes, args, interval=True)
+        for i_env in range(len(args.env_name)):
+            log[args.log_name].info("[env::{}] Return before update: {}".format(i_env, before_rewards[i_env]))
+            tb_writer.add_scalars('running_returns/before_update', {str(i_env): before_rewards[i_env]}, batch)
+
+            log[args.log_name].info("[env::{}] Return after update: {}".format(i_env, after_rewards[i_env]))
+            tb_writer.add_scalars('running_returns/after_update', {str(i_env): after_rewards[i_env]}, batch)
 
         tb_writer.add_scalar('policy/actions_train', episodes[0][0].actions.mean(), batch)
         tb_writer.add_scalar('policy/actions_test', episodes[0][1].actions.mean(), batch)
 
-        tb_writer.add_scalar('running_returns/before_update', curr_returns[0][0], batch)
-        tb_writer.add_scalar('running_returns/after_update', curr_returns[0][1], batch)
-
-        tb_writer.add_scalar('running_cfis/before_update', curr_returns[1][0], batch)
-        tb_writer.add_scalar('running_cfis/after_update', curr_returns[1][1], batch)
-
         tb_writer.add_scalar('loss/inner_rl', np.mean(inner_losses), batch)
         tb_writer.add_scalar('loss/outer_rl', outer_loss.item(), batch)
-
-        # Evaluation
-        if batch % args.test_freq == 0:
-            test_tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
-            test_episodes = metalearner.test(test_tasks, num_steps=args.num_test_steps,
-                                             batch_size=args.test_batch_size, halve_lr=args.halve_test_lr)
-            all_returns = total_rewards(test_episodes, interval=True)
-            for num in range(args.num_test_steps + 1):
-                tb_writer.add_scalar('evaluation_rew/avg_rew ' + str(num), all_returns[0][num], batch)
-                tb_writer.add_scalar('evaluation_cfi/avg_rew ' + str(num), all_returns[1][num], batch)
-
-            log[args.log_name].info("Inner RL loss:: {}".format(np.mean(inner_losses)))
-            log[args.log_name].info("Outer RL loss:: {}".format(outer_loss.item()))

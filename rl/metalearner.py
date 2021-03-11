@@ -73,18 +73,19 @@ class MetaLearner(object):
         """
         episodes = []
         losses = []
-        for task in tasks:
-            self.sampler.reset_task(task)
-            self.policy.reset_context()
-            train_episodes = self.sampler.sample(self.policy, gamma=self.args.gamma)
+        for env_name in self.args.env_name:
+            for task in tasks[env_name]:
+                self.sampler.reset_task(env_name, task)
+                self.policy.reset_context()
+                train_episodes = self.sampler.sample(self.policy, env_name, gamma=self.args.gamma)
 
-            # inner loop (for CAVIA, this only updates the context parameters)
-            params, loss = self.adapt(train_episodes, first_order=first_order)
+                # inner loop (for CAVIA, this only updates the context parameters)
+                params, loss = self.adapt(train_episodes, first_order=first_order)
 
-            # rollouts after inner loop update
-            valid_episodes = self.sampler.sample(self.policy, params=params, gamma=self.args.gamma)
-            episodes.append((train_episodes, valid_episodes))
-            losses.append(loss.item())
+                # rollouts after inner loop update
+                valid_episodes = self.sampler.sample(self.policy, env_name, params=params, gamma=self.args.gamma)
+                episodes.append((train_episodes, valid_episodes))
+                losses.append(loss.item())
 
         return episodes, losses
 
@@ -93,38 +94,40 @@ class MetaLearner(object):
         for all the tasks `tasks`.batchsize
         """
         episodes_per_task = []
-        for task in tasks:
-            # reset context params (for cavia) and task
-            self.policy.reset_context()
-            self.sampler.reset_task(task)
+        for env_name in self.args.env_name:
+            for task in tasks[env_name]:
+                # reset context params (for cavia) and task
+                self.policy.reset_context()
+                self.sampler.reset_task(env_name, task)
 
-            # start with blank params
-            params = None
+                # start with blank params
+                params = None
 
-            # gather some initial experience and log performance
-            test_episodes = self.sampler.sample(
-                self.policy, gamma=self.args.gamma, params=params, batch_size=batch_size)
-
-            # initialise list which will log all rollouts for the current task
-            curr_episodes = [test_episodes]
-
-            for i in range(1, num_steps + 1):
-
-                # lower learning rate after first update (for MAML, as described in their paper)
-                if i == 1 and halve_lr:
-                    lr = self.args.fast_lr / 2.
-                else:
-                    lr = self.args.fast_lr
-
-                # inner-loop update
-                params, loss = self.adapt(test_episodes, first_order=True, params=params, lr=lr)
-
-                # get new rollouts
+                # gather some initial experience and log performance
                 test_episodes = self.sampler.sample(
-                    self.policy, gamma=self.args.gamma, params=params, batch_size=batch_size)
-                curr_episodes.append(test_episodes)
+                    self.policy, env_name, gamma=self.args.gamma,
+                    params=params, batch_size=batch_size)
 
-            episodes_per_task.append(curr_episodes)
+                # initialise list which will log all rollouts for the current task
+                curr_episodes = [test_episodes]
+
+                for i in range(1, num_steps + 1):
+                    # lower learning rate after first update (for MAML, as described in their paper)
+                    if i == 1 and halve_lr:
+                        lr = self.args.fast_lr / 2.
+                    else:
+                        lr = self.args.fast_lr
+
+                    # inner-loop update
+                    params, loss = self.adapt(test_episodes, first_order=True, params=params, lr=lr)
+
+                    # get new rollouts
+                    test_episodes = self.sampler.sample(
+                        self.policy, env_name, gamma=self.args.gamma,
+                        params=params, batch_size=batch_size)
+                    curr_episodes.append(test_episodes)
+
+                episodes_per_task.append(curr_episodes)
 
         self.policy.reset_context()
         return episodes_per_task

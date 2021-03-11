@@ -16,12 +16,20 @@ class BatchSampler(object):
         self.args = args
 
         self.queue = mp.Queue()
-        self.envs = SubprocVecEnv([make_env(args.env_name) for _ in range(args.num_workers)], queue=self.queue)
-        self.envs.seed(args.seed)
-        self._env = gym.make(args.env_name)
-        self._env.seed(args.seed)
+        self.envs = dict()
+        for env_name in args.env_name:
+            self.envs[env_name] = SubprocVecEnv([make_env(env_name) for _ in range(args.num_workers)], queue=self.queue)
+            self.envs[env_name].seed(args.seed)
 
-    def sample(self, policy, params=None, gamma=0.95, batch_size=None):
+        self._env = dict()
+        for env_name in args.env_name:
+            self._env[env_name] = gym.make(env_name)
+            self._env[env_name].seed(args.seed)
+
+        self.observation_space = self.envs[args.env_name[0]].observation_space
+        self.action_space = self.envs[args.env_name[0]].observation_space
+
+    def sample(self, policy, env_name, params=None, gamma=0.95, batch_size=None):
         if batch_size is None:
             batch_size = self.args.fast_batch_size
 
@@ -30,23 +38,25 @@ class BatchSampler(object):
             self.queue.put(i)
         for _ in range(self.args.num_workers):
             self.queue.put(None)
-        observations, batch_ids = self.envs.reset()
+        observations, batch_ids = self.envs[env_name].reset()
         dones = [False]
         while (not all(dones)) or (not self.queue.empty()):
             with torch.no_grad():
                 observations_tensor = torch.from_numpy(observations).to(device=self.args.device)
                 actions_tensor = policy(observations_tensor, params=params).sample()
                 actions = actions_tensor.cpu().numpy()
-            new_observations, rewards, dones, new_batch_ids, _ = self.envs.step(actions)
+            new_observations, rewards, dones, new_batch_ids, _ = self.envs[env_name].step(actions)
             episodes.append(observations, actions, rewards, batch_ids)
             observations, batch_ids = new_observations, new_batch_ids
         return episodes
 
-    def reset_task(self, task):
+    def reset_task(self, env_name, task):
         tasks = [task for _ in range(self.args.num_workers)]
-        reset = self.envs.reset_task(tasks)
+        reset = self.envs[env_name].reset_task(tasks)
         return all(reset)
 
     def sample_tasks(self, num_tasks):
-        tasks = self._env.unwrapped.sample_tasks(num_tasks)
+        tasks = dict()
+        for env_name in self.args.env_name:
+            tasks[env_name] = self._env[env_name].unwrapped.sample_tasks(num_tasks)
         return tasks

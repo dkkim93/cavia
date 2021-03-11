@@ -60,9 +60,14 @@ register(
 
 # 2D Navigation
 # ----------------------------------------
+register(
+    '2DNavigationVel-v0',
+    entry_point='envs.navigation_vel:NavigationVel2DEnv',
+    max_episode_steps=100
+)
 
 register(
-    '2DNavigation-v0',
-    entry_point='envs.navigation:Navigation2DEnv',
+    '2DNavigationAcc-v0',
+    entry_point='envs.navigation_acc:NavigationAcc2DEnv',
     max_episode_steps=100
 )

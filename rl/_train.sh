@@ -14,4 +14,5 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/$HOME/.mujoco/mjpro150/bin
 export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
 
 # Begin experiment
-python3 main.py
+python3 main.py \
+--env-name "2DNavigationVel-v0" "2DNavigationAcc-v0"

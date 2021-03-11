@@ -26,14 +26,14 @@ def main(args):
 
     # Set policy
     policy = CaviaMLPPolicy(
-        input_size=int(np.prod(sampler.envs.observation_space.shape)),
-        output_size=int(np.prod(sampler.envs.action_space.shape)),
+        input_size=int(np.prod(sampler.observation_space.shape)),
+        output_size=int(np.prod(sampler.action_space.shape)),
         hidden_sizes=(args.hidden_size,) * args.num_layers,
         num_context_params=args.num_context_params,
         device=args.device)
 
     # Initialise baseline
-    baseline = LinearFeatureBaseline(int(np.prod(sampler.envs.observation_space.shape)))
+    baseline = LinearFeatureBaseline(int(np.prod(sampler.observation_space.shape)))
 
     # Initialise meta-learner
     metalearner = MetaLearner(sampler, policy, baseline, args)
