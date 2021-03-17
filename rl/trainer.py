@@ -53,10 +53,10 @@ def train(sampler, metalearner, args, log, tb_writer):
         before_rewards, after_rewards = total_rewards(episodes, args, interval=True)
         for i_env in range(len(args.env_name)):
             log[args.log_name].info("[env::{}] Return before update: {}".format(i_env, before_rewards[i_env]))
-            tb_writer.add_scalars('running_returns/before_update', {str(i_env): before_rewards[i_env]}, batch)
+            tb_writer.add_scalars('running_returns/' + str(i_env), {"before": before_rewards[i_env]}, batch)
 
             log[args.log_name].info("[env::{}] Return after update: {}".format(i_env, after_rewards[i_env]))
-            tb_writer.add_scalars('running_returns/after_update', {str(i_env): after_rewards[i_env]}, batch)
+            tb_writer.add_scalars('running_returns/' + str(i_env), {"after": after_rewards[i_env]}, batch)
 
         tb_writer.add_scalar('policy/actions_train', episodes[0][0].actions.mean(), batch)
         tb_writer.add_scalar('policy/actions_test', episodes[0][1].actions.mean(), batch)
