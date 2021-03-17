@@ -27,7 +27,7 @@ class BatchSampler(object):
             self._env[env_name].seed(args.seed)
 
         self.observation_space = self.envs[args.env_name[0]].observation_space
-        self.action_space = self.envs[args.env_name[0]].observation_space
+        self.action_space = self.envs[args.env_name[0]].action_space
 
     def sample(self, policy, env_name, params=None, gamma=0.95, batch_size=None):
         if batch_size is None:
