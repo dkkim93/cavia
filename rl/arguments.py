@@ -86,6 +86,7 @@ def parse_args():
         warnings.warn('You are using MAML and not halving the LR at test time!')
 
     # Set log name
-    args.log_name = "env::%s" % (args.env_name)
+    args.log_name = "env::%s_fast_batch_size::%s_num_context_params::%s" % (
+        args.env_name, args.fast_batch_size, args.num_context_params)
 
     return args
