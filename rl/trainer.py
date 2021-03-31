@@ -37,7 +37,9 @@ def total_rewards(episodes_per_task, args, interval=False):
 def train(sampler, metalearner, args, log, tb_writer):
     for batch in range(args.num_batches):
         # Get a batch of tasks
-        tasks = sampler.sample_tasks(num_tasks=args.meta_batch_size)
+        assert args.meta_batch_size % len(args.env_name) == 0
+        num_tasks = int(args.meta_batch_size / len(args.env_name))
+        tasks = sampler.sample_tasks(num_tasks=num_tasks)
 
         # do the inner-loop update for each task
         # this returns training (before update) and validation (after update) episodes
