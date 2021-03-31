@@ -24,11 +24,12 @@ class MetaLearner(object):
         Pieter Abbeel, "Trust Region Policy Optimization", 2015
         (https://arxiv.org/abs/1502.05477)
     """
-    def __init__(self, sampler, policy, baseline, args):
+    def __init__(self, sampler, policy, baseline, args, tb_writer):
         self.sampler = sampler
         self.policy = policy
         self.baseline = baseline
         self.args = args
+        self.tb_writer = tb_writer
         self.to(args.device)
 
     def inner_loss(self, episodes, params=None):
@@ -88,6 +89,22 @@ class MetaLearner(object):
                 losses.append(loss.item())
 
         return episodes, losses
+
+    def sample_debug(self, tasks, iteration, first_order=False):
+        """Sample trajectories (before and after the update of the parameters)
+        for all the tasks `tasks`.
+        """
+        for env_name in self.args.env_name:
+            for task in tasks[env_name]:
+                self.sampler.reset_task(env_name, task)
+                self.policy.reset_context()
+                train_episodes = self.sampler.sample(self.policy, env_name, gamma=self.args.gamma)
+
+                # inner loop (for CAVIA, this only updates the context parameters)
+                self.adapt(train_episodes, first_order=first_order)
+                context_params = self.policy.context_params.cpu().detach().numpy()
+                for i_context, context_param in enumerate(context_params):
+                    self.tb_writer.add_scalars("debug/context/" + env_name, {str(i_context): context_param}, iteration)
 
     def test(self, tasks, num_steps, batch_size, halve_lr):
         """Sample trajectories (before and after the update of the parameters)

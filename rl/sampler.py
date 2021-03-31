@@ -5,26 +5,38 @@ from envs.subproc_vec_env import SubprocVecEnv
 from episode import BatchEpisodes
 
 
-def make_env(env_name):
+def make_env(env_name, args):
     def _make_env():
-        return gym.make(env_name)
+        env = gym.make(env_name)
+        env._max_episode_steps = args.ep_horizon
+        return env
     return _make_env
 
 
 class BatchSampler(object):
-    def __init__(self, args):
+    def __init__(self, args, log):
         self.args = args
+        self.log = log
 
         self.queue = mp.Queue()
         self.envs = dict()
         for env_name in args.env_name:
-            self.envs[env_name] = SubprocVecEnv([make_env(env_name) for _ in range(args.num_workers)], queue=self.queue)
+            self.envs[env_name] = SubprocVecEnv(
+                [make_env(env_name, args) for _ in range(args.num_workers)], queue=self.queue)
             self.envs[env_name].seed(args.seed)
 
         self._env = dict()
         for env_name in args.env_name:
             self._env[env_name] = gym.make(env_name)
+            self._env[env_name]._max_episode_steps = args.ep_horizon
             self._env[env_name].seed(args.seed)
+
+        self.test_env = dict()
+        for env_name in args.env_name:
+            self.test_env[env_name] = gym.make(env_name)
+            self.test_env[env_name]._max_episode_steps = args.ep_horizon
+            self.test_env[env_name].seed(args.seed)
+        self.sample_test_tasks(num_tasks=1)
 
         self.observation_space = self.envs[args.env_name[0]].observation_space
         self.action_space = self.envs[args.env_name[0]].action_space
@@ -48,6 +60,7 @@ class BatchSampler(object):
             new_observations, rewards, dones, new_batch_ids, _ = self.envs[env_name].step(actions)
             episodes.append(observations, actions, rewards, batch_ids)
             observations, batch_ids = new_observations, new_batch_ids
+
         return episodes
 
     def reset_task(self, env_name, task):
@@ -60,3 +73,10 @@ class BatchSampler(object):
         for env_name in self.args.env_name:
             tasks[env_name] = self._env[env_name].unwrapped.sample_tasks(num_tasks)
         return tasks
+
+    def sample_test_tasks(self, num_tasks=1):
+        self.test_tasks = dict()
+        for env_name in self.args.env_name:
+            self.test_tasks[env_name] = self._env[env_name].unwrapped.sample_tasks(num_tasks)
+            self.log[self.args.log_name].info("[env::{}] Debug test: {}".format(
+                env_name, self.test_tasks[env_name][0]))

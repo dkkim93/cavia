@@ -34,7 +34,7 @@ class NavigationAcc2DEnv(gym.Env):
         return [seed]
 
     def sample_tasks(self, num_tasks):
-        goals = self.np_random.uniform(-1., 1., size=(num_tasks, 2))
+        goals = self.np_random.uniform(-5., 5., size=(num_tasks, 2))
         tasks = [{'goal': goal} for goal in goals]
         return tasks
 
@@ -52,11 +52,12 @@ class NavigationAcc2DEnv(gym.Env):
         assert self.action_space.contains(action)
         self._state = self._state + self._vel
         if self.clip_position:
-            self._state = np.clip(self._state, -5, 5)
+            self._state = np.clip(self._state, -10, 10)
         self._vel = self._vel + action
+        next_obs = np.concatenate([self._state, self._vel])
 
         x = self._state[0] - self._goal[0]
         y = self._state[1] - self._goal[1]
         reward = -np.sqrt(x ** 2 + y ** 2)
 
-        return np.concatenate([self._state, self._vel]), reward, False, self._task
+        return next_obs, reward, False, self._task

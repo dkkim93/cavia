@@ -10,8 +10,6 @@ def parse_args():
     # General
     parser.add_argument('--env-name', type=str, nargs='+',
                         help='name of the environment')
-    # parser.add_argument('--env-name', type=str, default='2DNavigation-v0',
-    #                     help='name of the environment')
     parser.add_argument('--gamma', type=float, default=0.95,
                         help='value of the discount factor gamma')
     parser.add_argument('--tau', type=float, default=1.0,
@@ -48,9 +46,9 @@ def parse_args():
                         help='learning rate for the 1-step gradient update of MAML/CAVIA')
 
     # Optimization
-    parser.add_argument('--num-batches', type=int, default=500,
+    parser.add_argument('--num-batches', type=int, default=300,
                         help='number of batches')
-    parser.add_argument('--meta-batch-size', type=int, default=20,
+    parser.add_argument('--meta-batch-size', type=int, default=10,
                         help='number of tasks per batch')
     parser.add_argument('--max-kl', type=float, default=1e-2,
                         help='maximum value for the KL constraint in TRPO')
@@ -62,6 +60,10 @@ def parse_args():
                         help='maximum number of iterations for line search')
     parser.add_argument('--ls-backtrack-ratio', type=float, default=0.8,
                         help='maximum number of iterations for line search')
+
+    # Environment
+    parser.add_argument('--ep-horizon', type=int, default=100,
+                        help='Episodic horizon')
 
     # Miscellaneous
     parser.add_argument('--num-workers', type=int, default=mp.cpu_count() - 1,
@@ -86,7 +88,7 @@ def parse_args():
         warnings.warn('You are using MAML and not halving the LR at test time!')
 
     # Set log name
-    args.log_name = "env::%s_fast_batch_size::%s_num_context_params::%s" % (
-        args.env_name, args.fast_batch_size, args.num_context_params)
+    args.log_name = "env::%s_ep_horizon::%s_fast_batch_size::%s_num_context_params::%s" % (
+        args.env_name, args.ep_horizon, args.fast_batch_size, args.num_context_params)
 
     return args

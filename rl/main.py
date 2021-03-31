@@ -22,7 +22,7 @@ def main(args):
     set_seed(args.seed, cudnn=args.make_deterministic)
 
     # Set sampler
-    sampler = BatchSampler(args)
+    sampler = BatchSampler(args, log)
 
     # Set policy
     policy = CaviaMLPPolicy(
@@ -36,7 +36,7 @@ def main(args):
     baseline = LinearFeatureBaseline(int(np.prod(sampler.observation_space.shape)))
 
     # Initialise meta-learner
-    metalearner = MetaLearner(sampler, policy, baseline, args)
+    metalearner = MetaLearner(sampler, policy, baseline, args, tb_writer)
 
     # Begin train
     train(sampler, metalearner, args, log, tb_writer)

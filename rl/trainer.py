@@ -65,3 +65,6 @@ def train(sampler, metalearner, args, log, tb_writer):
 
         tb_writer.add_scalar('loss/inner_rl', np.mean(inner_losses), batch)
         tb_writer.add_scalar('loss/outer_rl', outer_loss.item(), batch)
+
+        # For debugging
+        metalearner.sample_debug(sampler.test_tasks, batch, first_order=args.first_order)
