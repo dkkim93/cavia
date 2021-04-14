@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from torch.distributions.kl import kl_divergence
 from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
 from misc.optimization import conjugate_gradient
@@ -101,10 +102,21 @@ class MetaLearner(object):
                 train_episodes = self.sampler.sample(self.policy, env_name, gamma=self.args.gamma)
 
                 # inner loop (for CAVIA, this only updates the context parameters)
-                self.adapt(train_episodes, first_order=first_order)
+                params, _ = self.adapt(train_episodes, first_order=first_order)
                 context_params = self.policy.context_params.cpu().detach().numpy()
                 for i_context, context_param in enumerate(context_params):
                     self.tb_writer.add_scalars("debug/context/" + env_name, {str(i_context): context_param}, iteration)
+
+                if iteration % 50 == 0:
+                    valid_episodes = self.sampler.sample(self.policy, env_name, params=params, gamma=self.args.gamma)
+
+                    base_name = "log/tb_" + self.args.log_name + "/" + env_name + "_iter::" + str(iteration)
+
+                    train_traj = train_episodes.observations[:, 0, :]
+                    np.save(base_name + "_train_traj.npy", train_traj.cpu().detach().numpy())
+
+                    val_traj = valid_episodes.observations[:, 0, :]
+                    np.save(base_name + "_val_traj.npy", val_traj.cpu().detach().numpy())
 
     def test(self, tasks, num_steps, batch_size, halve_lr):
         """Sample trajectories (before and after the update of the parameters)
