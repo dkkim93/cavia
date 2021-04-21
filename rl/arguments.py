@@ -90,7 +90,7 @@ def parse_args():
         warnings.warn('You are using MAML and not halving the LR at test time!')
 
     # Set log name
-    args.log_name = "env::%s_ep_horizon::%s_fast_batch_size::%s_num_context_params::%s_fast_lr::%s_n_inner::%s" % (
-        args.env_name, args.ep_horizon, args.fast_batch_size, args.num_context_params, args.fast_lr, args.n_inner)
+    args.log_name = "seed::%s_env::%s_ep_horizon::%s_fast_batch_size::%s_num_context_params::%s_fast_lr::%s_n_inner::%s" % (
+        args.seed, args.env_name, args.ep_horizon, args.fast_batch_size, args.num_context_params, args.fast_lr, args.n_inner)
 
     return args
