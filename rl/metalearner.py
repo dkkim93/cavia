@@ -79,10 +79,12 @@ class MetaLearner(object):
             for task in tasks[env_name]:
                 self.sampler.reset_task(env_name, task)
                 self.policy.reset_context()
-                train_episodes = self.sampler.sample(self.policy, env_name, gamma=self.args.gamma)
 
                 # inner loop (for CAVIA, this only updates the context parameters)
-                params, loss = self.adapt(train_episodes, first_order=first_order)
+                params = None
+                for _ in range(self.args.n_inner):
+                    train_episodes = self.sampler.sample(self.policy, env_name, params=params, gamma=self.args.gamma)
+                    params, loss = self.adapt(train_episodes, first_order=first_order)
 
                 # rollouts after inner loop update
                 valid_episodes = self.sampler.sample(self.policy, env_name, params=params, gamma=self.args.gamma)
@@ -99,10 +101,15 @@ class MetaLearner(object):
             for task in tasks[env_name]:
                 self.sampler.reset_task(env_name, task)
                 self.policy.reset_context()
-                train_episodes = self.sampler.sample(self.policy, env_name, gamma=self.args.gamma)
 
                 # inner loop (for CAVIA, this only updates the context parameters)
-                params, _ = self.adapt(train_episodes, first_order=first_order)
+                train_episodes = []
+                params = None
+                for _ in range(self.args.n_inner):
+                    train_episodes_ = self.sampler.sample(self.policy, env_name, gamma=self.args.gamma)
+                    params, _ = self.adapt(train_episodes_, first_order=first_order)
+                    train_episodes.append(train_episodes_)
+
                 context_params = self.policy.context_params.cpu().detach().numpy()
                 for i_context, context_param in enumerate(context_params):
                     self.tb_writer.add_scalars("debug/context/" + env_name, {str(i_context): context_param}, iteration)
@@ -112,11 +119,16 @@ class MetaLearner(object):
 
                     base_name = "log/tb_" + self.args.log_name + "/" + env_name + "_iter::" + str(iteration)
 
-                    train_traj = train_episodes.observations[:, 0, :]
-                    np.save(base_name + "_train_traj.npy", train_traj.cpu().detach().numpy())
+                    for i_train, train_episodes_ in enumerate(train_episodes):
+                        train_traj_obs = train_episodes_.observations[:, 0, :].cpu().detach().numpy()
+                        train_traj_reward = np.mean(train_episodes_.rewards.cpu().detach().numpy(), axis=1)
+                        np.save(base_name + "_train_traj_obs_" + str(i_train) + ".npy", train_traj_obs)
+                        np.save(base_name + "_train_traj_reward_" + str(i_train) + ".npy", train_traj_reward)
 
-                    val_traj = valid_episodes.observations[:, 0, :]
-                    np.save(base_name + "_val_traj.npy", val_traj.cpu().detach().numpy())
+                    val_traj_obs = valid_episodes.observations[:, 0, :].cpu().detach().numpy()
+                    val_traj_reward = np.mean(valid_episodes.rewards.cpu().detach().numpy(), axis=1)
+                    np.save(base_name + "_val_traj_obs.npy", val_traj_obs)
+                    np.save(base_name + "_val_traj_reward.npy", val_traj_reward)
 
     def test(self, tasks, num_steps, batch_size, halve_lr):
         """Sample trajectories (before and after the update of the parameters)

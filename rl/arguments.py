@@ -44,9 +44,11 @@ def parse_args():
                         help='number of rollouts for each individual task ()')
     parser.add_argument('--fast-lr', type=float, default=1.0,
                         help='learning rate for the 1-step gradient update of MAML/CAVIA')
+    parser.add_argument('--n-inner', type=int, default=3,
+                        help='number of inner loops')
 
     # Optimization
-    parser.add_argument('--num-batches', type=int, default=300,
+    parser.add_argument('--num-batches', type=int, default=500,
                         help='number of batches')
     parser.add_argument('--meta-batch-size', type=int, default=10,
                         help='number of tasks per batch')
@@ -88,7 +90,7 @@ def parse_args():
         warnings.warn('You are using MAML and not halving the LR at test time!')
 
     # Set log name
-    args.log_name = "env::%s_ep_horizon::%s_fast_batch_size::%s_num_context_params::%s" % (
-        args.env_name, args.ep_horizon, args.fast_batch_size, args.num_context_params)
+    args.log_name = "env::%s_ep_horizon::%s_fast_batch_size::%s_num_context_params::%s_fast_lr::%s_n_inner::%s" % (
+        args.env_name, args.ep_horizon, args.fast_batch_size, args.num_context_params, args.fast_lr, args.n_inner)
 
     return args
