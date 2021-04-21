@@ -48,7 +48,7 @@ def parse_args():
                         help='number of inner loops')
 
     # Optimization
-    parser.add_argument('--num-batches', type=int, default=500,
+    parser.add_argument('--num-batches', type=int, default=300,
                         help='number of batches')
     parser.add_argument('--meta-batch-size', type=int, default=10,
                         help='number of tasks per batch')
