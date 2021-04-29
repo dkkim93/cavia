@@ -22,7 +22,7 @@ class NavigationVel2DEnv(gym.Env):
         super(NavigationVel2DEnv, self).__init__()
 
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(4,), dtype=np.float32)
-        self.action_space = spaces.Box(low=-0.1, high=0.1, shape=(2,), dtype=np.float32)
+        self.action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
 
         self._task = task
         self._goal = task.get('goal', np.zeros(2, dtype=np.float32))
@@ -50,9 +50,8 @@ class NavigationVel2DEnv(gym.Env):
         return np.concatenate([self._state, self._vel])
 
     def step(self, action):
+        # action = np.clip(action, -0.1, 0.1)
 
-        action = np.clip(action, -0.1, 0.1)
-        assert self.action_space.contains(action)
         self._state = self._state + action
         if self.clip_position:
             self._state = np.clip(self._state, -10, 10)
@@ -60,7 +59,7 @@ class NavigationVel2DEnv(gym.Env):
 
         x = self._state[0] - self._goal[0]
         y = self._state[1] - self._goal[1]
-        reward = -np.sqrt(x ** 2 + y ** 2)
+        reward = -np.sqrt(x ** 2 + y ** 2) - 0.01 * np.linalg.norm(action)
 
         # Update velocity (i.e., adding previous action as input)
         if self.update_vel:
