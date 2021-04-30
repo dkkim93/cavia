@@ -2,7 +2,8 @@
 numpy>=1.14.0
 torch==1.7.0+cu110
 lockfile
-gym[atari]==0.10.5
+mujoco_py==1.50.1.68
+gym[mujoco]==0.10.5
 tensorboardX>=1.2
 matplotlib
 scipy

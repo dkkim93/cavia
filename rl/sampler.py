@@ -1,5 +1,6 @@
 import gym
 import torch
+import numpy as np
 import multiprocessing as mp
 from envs.subproc_vec_env import SubprocVecEnv
 from episode import BatchEpisodes
@@ -38,8 +39,15 @@ class BatchSampler(object):
             self.test_env[env_name].seed(args.seed)
         self.sample_test_tasks(num_tasks=1)
 
-        self.observation_space = self.envs[args.env_name[0]].observation_space
-        self.action_space = self.envs[args.env_name[0]].action_space
+        # NOTE Different environments can have different observation and action space
+        # Select one with the largest observation and action space
+        observation_spaces = [self.envs[env_name].observation_space.shape for env_name in args.env_name]
+        self.observation_space = self.envs[args.env_name[np.argmax(observation_spaces)]].observation_space
+        log[args.log_name].info("Observation space: {}".format(self.observation_space))
+
+        action_spaces = [self.envs[env_name].action_space.shape for env_name in args.env_name]
+        self.action_space = self.envs[args.env_name[np.argmax(action_spaces)]].action_space
+        log[args.log_name].info("Action space: {}".format(self.action_space))
 
     def sample(self, policy, env_name, params=None, gamma=0.95, batch_size=None):
         if batch_size is None:
@@ -54,10 +62,19 @@ class BatchSampler(object):
         dones = [False]
         while (not all(dones)) or (not self.queue.empty()):
             with torch.no_grad():
+                # Process observation and pad zeros if needed
+                if observations.shape[-1] < policy.input_size:
+                    target = np.zeros((observations.shape[0], policy.input_size), dtype=observations.dtype)
+                    target[:, :int(observations.shape[-1])] = observations
+                    observations = target
                 observations_tensor = torch.from_numpy(observations).to(device=self.args.device)
+
                 actions_tensor = policy(observations_tensor, params=params).sample()
                 actions = actions_tensor.cpu().numpy()
-            new_observations, rewards, dones, new_batch_ids, _ = self.envs[env_name].step(actions)
+                # Process actions to fit into action_space
+                # TODO May need to apply masking laster
+                actions_ = actions[:, :int(np.prod(self.envs[env_name].action_space.shape))]
+            new_observations, rewards, dones, new_batch_ids, _ = self.envs[env_name].step(actions_)
             episodes.append(observations, actions, rewards, batch_ids)
             observations, batch_ids = new_observations, new_batch_ids
 
