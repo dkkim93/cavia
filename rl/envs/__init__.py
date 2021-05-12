@@ -45,6 +45,13 @@ register(
 )
 
 register(
+    'AntVelCripple-v1',
+    entry_point='envs.utils:mujoco_wrapper',
+    kwargs={'entry_point': 'envs.mujoco.ant_cripple:AntVelCrippleEnv'},
+    max_episode_steps=200
+)
+
+register(
     'HalfCheetahVel-v1',
     entry_point='envs.utils:mujoco_wrapper',
     kwargs={'entry_point': 'envs.mujoco.half_cheetah:HalfCheetahVelEnv'},

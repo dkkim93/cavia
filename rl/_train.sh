@@ -21,32 +21,32 @@ FAST_LR=0.1
 N_INNER=3
 
 # Begin experiment
-for SEED in {1..1}
+for SEED in {1..3}
 do
-    # python3 main.py \
-    # --env-name "HalfCheetahVel-v1" \
-    # --seed $SEED \
-    # --ep-horizon $EP_HORIZON \
-    # --fast-batch-size $FAST_BATCH_SIZE \
-    # --n-inner $N_INNER \
-    # --meta-batch-size $META_BATCH_SIZE \
-    # --fast-lr $FAST_LR
-
-    # python3 main.py \
-    # --env-name "AntVel-v1" \
-    # --seed $SEED \
-    # --ep-horizon $EP_HORIZON \
-    # --fast-batch-size $FAST_BATCH_SIZE \
-    # --n-inner $N_INNER \
-    # --meta-batch-size $META_BATCH_SIZE \
-    # --fast-lr $FAST_LR
-
     python3 main.py \
-    --env-name "HalfCheetahVel-v1" "AntVel-v1" \
+    --env-name "AntVel-v1" \
     --seed $SEED \
     --ep-horizon $EP_HORIZON \
     --fast-batch-size $FAST_BATCH_SIZE \
     --n-inner $N_INNER \
     --meta-batch-size $META_BATCH_SIZE \
     --fast-lr $FAST_LR
+
+    # python3 main.py \
+    # --env-name "AntVelCripple-v1" \
+    # --seed $SEED \
+    # --ep-horizon $EP_HORIZON \
+    # --fast-batch-size $FAST_BATCH_SIZE \
+    # --n-inner $N_INNER \
+    # --meta-batch-size $META_BATCH_SIZE \
+    # --fast-lr $FAST_LR
+
+    # python3 main.py \
+    # --env-name "AntVel-v1" "AntVelCripple-v1" \
+    # --seed $SEED \
+    # --ep-horizon $EP_HORIZON \
+    # --fast-batch-size $FAST_BATCH_SIZE \
+    # --n-inner $N_INNER \
+    # --meta-batch-size $META_BATCH_SIZE \
+    # --fast-lr $FAST_LR
 done
